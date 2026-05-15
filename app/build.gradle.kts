@@ -64,4 +64,7 @@ dependencies {
     // ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
+
+    // LiveData i Compose
+    implementation("androidx.compose.runtime:runtime-livedata:1.6.0")
 }
