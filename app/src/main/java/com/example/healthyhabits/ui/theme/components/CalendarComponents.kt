@@ -68,10 +68,10 @@ fun CalendarStrip(
                 }
                 DailyStatus.NO_PLAN -> if (isLightTheme) Color(0xFFE3E5E0) else Color(0xFF1E222D)
             }
-            val contentColor = when {
-                status == DailyStatus.NO_PLAN -> if (isSelected) scheme.onSurface else scheme.onSurfaceVariant
-                status == DailyStatus.FAILED && isFuture -> scheme.onSurface
-                else -> Color.Black
+            val contentColor = if (status == DailyStatus.NO_PLAN) {
+                if (isSelected) scheme.onSurface else scheme.onSurfaceVariant
+            } else {
+                Color.Black
             }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onDayClick(dateStr) }) {

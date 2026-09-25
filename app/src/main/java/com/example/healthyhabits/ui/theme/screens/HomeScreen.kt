@@ -286,8 +286,19 @@ fun HomeScreen(
                         val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
                         try {
                             val d = sdf.parse(planDate); val t = sdf.parse(todayDateStr)
-                            if (d != null && d.before(t)) planErrorMessage = "Kan ikke planlegge i fortiden!"
-                            else { viewModel.addPlan(planName, planCount.toIntOrNull() ?: 1, planDate); showPlanDialog = false; planName = ""; planCount = ""; planErrorMessage = null }
+                            val count = planCount.toIntOrNull() ?: 0
+                            when {
+                                planName.isBlank() -> planErrorMessage = "Skriv inn navnet på aktiviteten."
+                                count <= 0 -> planErrorMessage = "Antall aktiviteter må være minst 1."
+                                d != null && d.before(t) -> planErrorMessage = "Kan ikke planlegge i fortiden!"
+                                else -> {
+                                    viewModel.addPlan(planName, count, planDate)
+                                    showPlanDialog = false
+                                    planName = ""
+                                    planCount = ""
+                                    planErrorMessage = null
+                                }
+                            }
                         } catch (e: Exception) { planErrorMessage = "Feil datoformat" }
                     }, colors = ButtonDefaults.buttonColors(containerColor = neonLime, contentColor = MaterialTheme.colorScheme.onPrimary)) { Text("Lagre") }
                 },

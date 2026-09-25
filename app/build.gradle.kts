@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.healthyhabits"
         minSdk = 24
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.7"
+        versionCode = 11
+        versionName = "1.11"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

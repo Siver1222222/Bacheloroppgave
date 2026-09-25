@@ -261,10 +261,15 @@ fun PlanDialog(initialDate: String, onDismiss: () -> Unit, onSave: (String, Int,
             Button(onClick = { 
                 try {
                     val d = sdf.parse(date); val t = sdf.parse(todayStr)
-                    if (d != null && d.before(t)) errorMessage = "Kan ikke planlegge i fortiden!"
-                    else {
-                        onSave(name.trim(), count.toIntOrNull() ?: 1, date)
-                        prefs.edit().remove("library_activity").apply()
+                    val activityCount = count.toIntOrNull() ?: 0
+                    when {
+                        name.isBlank() -> errorMessage = "Skriv inn navnet på aktiviteten."
+                        activityCount <= 0 -> errorMessage = "Antall aktiviteter må være minst 1."
+                        d != null && d.before(t) -> errorMessage = "Kan ikke planlegge i fortiden!"
+                        else -> {
+                            onSave(name.trim(), activityCount, date)
+                            prefs.edit().remove("library_activity").apply()
+                        }
                     }
                 } catch (e: Exception) { errorMessage = "Feil datoformat" }
             }, colors = ButtonDefaults.buttonColors(containerColor = neonLime, contentColor = MaterialTheme.colorScheme.onPrimary)) { Text("Lagre Plan") }

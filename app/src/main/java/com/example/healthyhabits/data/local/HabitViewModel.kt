@@ -115,18 +115,21 @@ class HabitViewModel(
     }
 
     fun addPlan(name: String, count: Int, date: String) {
+        val cleanName = name.trim()
+        val safeCount = count.coerceIn(1, 50)
+        if (cleanName.isBlank() || date.isBlank()) return
         viewModelScope.launch {
-            val entries = mutableListOf<HabitEntry>()
-            repeat(count) {
-                entries.add(HabitEntry(habitId = 1, date = date, activityName = name.trim(), completed = false, minutes = 0))
+            val entries = List(safeCount) {
+                HabitEntry(habitId = 1, date = date, activityName = cleanName, completed = false, minutes = 0)
             }
             repository.insertEntries(entries)
         }
     }
 
     fun completeTask(entry: HabitEntry, minutes: Int) {
+        if (entry.completed) return
         viewModelScope.launch {
-            repository.updateEntry(entry.copy(completed = true, minutes = minutes, timestamp = System.currentTimeMillis()))
+            repository.updateEntry(entry.copy(completed = true, minutes = minutes.coerceIn(0, 1440), timestamp = System.currentTimeMillis()))
         }
     }
 
@@ -166,13 +169,6 @@ class HabitViewModel(
 
         val totalPlanned = filtered.size
         val totalCompleted = filtered.count { it.first.completed }
-
-        // Debug-logging for 100% verifisering i Logcat
-        android.util.Log.d("HabitStats", "--- Debug Statistikk ($filter) ---")
-        android.util.Log.d("HabitStats", "Planlagt (Y): $totalPlanned | Fullført (X): $totalCompleted")
-        filtered.forEach { (entry, _) ->
-            android.util.Log.d("HabitStats", "ID: ${entry.id} | ${entry.activityName} [${entry.date}] | ${if (entry.completed) "✓" else "⭕"}")
-        }
 
         if (filtered.isEmpty()) return InsightReport(bestStreak = calculateBestStreak(entries.map { it.first }))
         val byDay = filtered.groupBy { it.first.date }
@@ -222,16 +218,17 @@ class HabitViewModel(
         val cal = Calendar.getInstance()
         var streak = 0; var inactive = 0
         
-        repeat(1001) { i ->
+        for (i in 0..1000) {
             val d = sdf.format(cal.time)
             val tasks = byDay[d] ?: emptyList()
             if (tasks.isNotEmpty() && tasks.all { it.completed }) {
-                streak++; inactive = 0
+                streak++
+                inactive = 0
             } else {
-                // Her lander vi hvis det er ingen oppgaver ELLER hvis det er delvis fullført
-                // Vi teller ikke i=0 (i dag) som inaktiv ennå, men alt annet teller mot brudd (3 dager)
+                // I dag får vi fortsatt vise siste aktive streak. Fra i går og bakover
+                // teller tre inaktive dager som brudd på streaken.
                 if (i != 0) inactive++
-                if (inactive >= 3) return@repeat
+                if (inactive >= 3) break
             }
             cal.add(Calendar.DAY_OF_YEAR, -1)
         }

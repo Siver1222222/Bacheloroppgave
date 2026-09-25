@@ -11,12 +11,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.FitnessCenter
@@ -32,19 +30,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.healthyhabits.R
 import com.example.healthyhabits.data.local.HabitViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.json.JSONArray
-import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.UUID
 
 private data class WorkoutItem(
     val id: String,
@@ -60,7 +54,6 @@ private data class WorkoutItem(
     val session: String,
     val benefits: List<String>,
     val tips: List<String>,
-    val isCustom: Boolean = false
 )
 
 private fun builtIn(
@@ -114,25 +107,20 @@ private val workouts = listOf(
 
 private const val PREFS = "healthy_habits"
 private const val FAVORITES_KEY = "library_favorites"
-private const val CUSTOM_WORKOUTS_KEY = "custom_workouts"
 
 @Composable
 fun WorkoutLibraryScreen(viewModel: HabitViewModel) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE) }
-    var customWorkouts by remember { mutableStateOf(loadCustomWorkouts(prefs)) }
     var selected by remember { mutableStateOf<WorkoutItem?>(null) }
     var search by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("Alle") }
     var showFavoritesOnly by remember { mutableStateOf(false) }
     var favorites by remember { mutableStateOf(loadFavorites(prefs)) }
     var addingIds by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var showCreateDialog by remember { mutableStateOf(false) }
-    var deleteCustom by remember { mutableStateOf<WorkoutItem?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val today = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date()) }
-    val allWorkouts = remember(customWorkouts) { workouts + customWorkouts }
 
     fun toggleFavorite(workout: WorkoutItem) {
         favorites = if (workout.id in favorites) favorites - workout.id else favorites + workout.id
@@ -150,8 +138,8 @@ fun WorkoutLibraryScreen(viewModel: HabitViewModel) {
         }
     }
 
-    val categories = listOf("Alle", "Kondisjon", "Styrke", "Bevegelighet", "Lagidrett", "Annet")
-    val filtered = allWorkouts.filter {
+    val categories = listOf("Alle", "Kondisjon", "Styrke", "Bevegelighet", "Lagidrett")
+    val filtered = workouts.filter {
         val matchesSearch = search.isBlank() || it.name.contains(search, true) || it.category.contains(search, true) || it.focus.contains(search, true)
         val matchesCategory = category == "Alle" || it.category == category
         val matchesFavorite = !showFavoritesOnly || it.id in favorites
@@ -171,56 +159,31 @@ fun WorkoutLibraryScreen(viewModel: HabitViewModel) {
                 item {
                     Text("Treningsbibliotek", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
                     Spacer(Modifier.height(4.dp))
-                    Text("Utforsk aktiviteter eller lag din egen.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = .62f))
+                    Text("Utforsk aktiviteter og finn noe som passer for deg.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = .62f))
                     Spacer(Modifier.height(16.dp))
                     OutlinedTextField(
-                        value = search,
-                        onValueChange = { search = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
+                        value = search, onValueChange = { search = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Søk") },
-                        placeholder = { Text("Søk etter aktivitet") },
-                        shape = RoundedCornerShape(18.dp)
+                        placeholder = { Text("Søk etter aktivitet") }, shape = RoundedCornerShape(18.dp)
                     )
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text("${filtered.size} aktiviteter", color = MaterialTheme.colorScheme.onBackground.copy(alpha = .55f), fontSize = 13.sp)
                         Spacer(Modifier.weight(1f))
-                        FilterChip(
-                            selected = showFavoritesOnly,
-                            onClick = { showFavoritesOnly = !showFavoritesOnly },
+                        FilterChip(selected = showFavoritesOnly, onClick = { showFavoritesOnly = !showFavoritesOnly },
                             label = { Text("Favoritter") },
-                            leadingIcon = { Icon(if (showFavoritesOnly) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                        )
+                            leadingIcon = { Icon(if (showFavoritesOnly) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = null, modifier = Modifier.size(18.dp)) })
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        categories.forEach { chip ->
-                            FilterChip(selected = category == chip, onClick = { category = chip }, label = { Text(chip) })
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Button(
-                        onClick = { showCreateDialog = true },
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
-                    ) {
-                        Icon(Icons.Default.Add, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Lag egen aktivitet", fontWeight = FontWeight.Bold)
+                        categories.forEach { chip -> FilterChip(selected = category == chip, onClick = { category = chip }, label = { Text(chip) }) }
                     }
                 }
 
                 items(filtered, key = { it.id }) { workout ->
                     WorkoutCard(
-                        workout = workout,
-                        favorite = workout.id in favorites,
-                        isAdding = workout.id in addingIds,
-                        onDetails = { selected = workout },
-                        onFavorite = { toggleFavorite(workout) },
-                        onAdd = { addWorkout(workout) },
-                        onDelete = if (workout.isCustom) ({ deleteCustom = workout }) else null
+                        workout = workout, favorite = workout.id in favorites, isAdding = workout.id in addingIds,
+                        onDetails = { selected = workout }, onFavorite = { toggleFavorite(workout) }, onAdd = { addWorkout(workout) }
                     )
                 }
 
@@ -231,10 +194,6 @@ fun WorkoutLibraryScreen(viewModel: HabitViewModel) {
                                 Icon(Icons.Default.FitnessCenter, contentDescription = null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = .35f), modifier = Modifier.size(42.dp))
                                 Spacer(Modifier.height(10.dp))
                                 Text(if (showFavoritesOnly) "Du har ingen favoritter ennå." else "Fant ingen aktiviteter.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = .55f))
-                                if (!showFavoritesOnly) {
-                                    Spacer(Modifier.height(10.dp))
-                                    TextButton(onClick = { showCreateDialog = true }) { Text("Lag en egen aktivitet") }
-                                }
                             }
                         }
                     }
@@ -242,50 +201,11 @@ fun WorkoutLibraryScreen(viewModel: HabitViewModel) {
             }
         } else {
             WorkoutDetails(
-                workout = selected!!,
-                favorite = selected!!.id in favorites,
-                isAdding = selected!!.id in addingIds,
-                onBack = { selected = null },
-                onFavorite = { toggleFavorite(selected!!) },
-                onAdd = { addWorkout(selected!!) },
-                onDelete = if (selected!!.isCustom) ({ deleteCustom = selected!! }) else null,
+                workout = selected!!, favorite = selected!!.id in favorites, isAdding = selected!!.id in addingIds,
+                onBack = { selected = null }, onFavorite = { toggleFavorite(selected!!) }, onAdd = { addWorkout(selected!!) },
                 modifier = Modifier.padding(padding)
             )
         }
-    }
-
-    if (showCreateDialog) {
-        CreateWorkoutDialog(
-            onDismiss = { showCreateDialog = false },
-            onCreate = { newWorkout ->
-                val updated = customWorkouts + newWorkout
-                customWorkouts = updated
-                saveCustomWorkouts(prefs, updated)
-                showCreateDialog = false
-                scope.launch { snackbarHostState.showSnackbar("${newWorkout.name} er lagt til i biblioteket") }
-            },
-            existingNames = allWorkouts.map { it.name }
-        )
-    }
-
-    if (deleteCustom != null) {
-        val item = deleteCustom!!
-        AlertDialog(
-            onDismissRequest = { deleteCustom = null },
-            title = { Text("Slett aktivitet?") },
-            text = { Text("${item.name} fjernes fra ditt eget bibliotek. Eventuelle planer du allerede har laget blir ikke slettet.") },
-            confirmButton = {
-                Button(onClick = {
-                    customWorkouts = customWorkouts.filterNot { it.id == item.id }
-                    favorites = favorites - item.id
-                    saveCustomWorkouts(prefs, customWorkouts)
-                    saveFavorites(prefs, favorites)
-                    if (selected?.id == item.id) selected = null
-                    deleteCustom = null
-                }) { Text("Slett") }
-            },
-            dismissButton = { TextButton(onClick = { deleteCustom = null }) { Text("Avbryt") } }
-        )
     }
 }
 
@@ -296,47 +216,10 @@ private fun saveFavorites(prefs: SharedPreferences, favorites: Set<String>) {
     prefs.edit().putStringSet(FAVORITES_KEY, favorites).apply()
 }
 
-private fun loadCustomWorkouts(prefs: SharedPreferences): List<WorkoutItem> {
-    val raw = prefs.getString(CUSTOM_WORKOUTS_KEY, null) ?: return emptyList()
-    return try {
-        val array = JSONArray(raw)
-        buildList {
-            for (i in 0 until array.length()) {
-                val o = array.getJSONObject(i)
-                add(
-                    WorkoutItem(
-                        id = o.getString("id"), name = o.getString("name"), category = o.optString("category", "Annet"),
-                        difficulty = o.optString("difficulty", "Moderat"), duration = o.optString("duration", "Valgfri"),
-                        imageRes = 0, description = o.optString("description", "Egen aktivitet lagt til av brukeren."),
-                        focus = o.optString("focus", "Bevegelse og aktivitet"), equipment = o.optString("equipment", "Valgfritt"),
-                        suitableFor = o.optString("suitableFor", "Tilpasses eget nivå"), session = o.optString("session", "Tilpass varighet og intensitet etter behov."),
-                        benefits = o.optString("benefits", "Fleksibel aktivitet").split("\u001F"),
-                        tips = o.optString("tips", "Start rolig og øk gradvis.").split("\u001F"),
-                        isCustom = true
-                    )
-                )
-            }
-        }
-    } catch (_: Exception) { emptyList() }
-}
-
-private fun saveCustomWorkouts(prefs: SharedPreferences, items: List<WorkoutItem>) {
-    val array = JSONArray()
-    items.forEach { w ->
-        array.put(JSONObject().apply {
-            put("id", w.id); put("name", w.name); put("category", w.category); put("difficulty", w.difficulty)
-            put("duration", w.duration); put("description", w.description); put("focus", w.focus); put("equipment", w.equipment)
-            put("suitableFor", w.suitableFor); put("session", w.session)
-            put("benefits", w.benefits.joinToString("\u001F")); put("tips", w.tips.joinToString("\u001F"))
-        })
-    }
-    prefs.edit().putString(CUSTOM_WORKOUTS_KEY, array.toString()).apply()
-}
-
 @Composable
 private fun WorkoutCard(
     workout: WorkoutItem, favorite: Boolean, isAdding: Boolean,
-    onDetails: () -> Unit, onFavorite: () -> Unit, onAdd: () -> Unit, onDelete: (() -> Unit)?
+    onDetails: () -> Unit, onFavorite: () -> Unit, onAdd: () -> Unit
 ) {
     Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), elevation = CardDefaults.cardElevation(3.dp)) {
         Column {
@@ -349,9 +232,7 @@ private fun WorkoutCard(
                 IconButton(onClick = onFavorite, modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).background(Color.Black.copy(alpha = .45f), RoundedCornerShape(50.dp))) {
                     Icon(if (favorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = "Favoritt", tint = if (favorite) MaterialTheme.colorScheme.primary else Color.White)
                 }
-                Row(Modifier.align(Alignment.BottomStart).padding(16.dp), verticalAlignment = Alignment.Bottom) {
-                    Text(workout.name, color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+                Text(workout.name, Modifier.align(Alignment.BottomStart).padding(16.dp), color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Column(Modifier.padding(16.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { SmallInfo(workout.difficulty); SmallInfo(workout.duration) }
@@ -365,11 +246,6 @@ private fun WorkoutCard(
                         Spacer(Modifier.width(5.dp)); Text(if (isAdding) "Lagt til" else "Legg til")
                     }
                 }
-                if (onDelete != null) {
-                    TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.Delete, null, modifier = Modifier.size(17.dp)); Spacer(Modifier.width(5.dp)); Text("Slett egen aktivitet")
-                    }
-                }
             }
         }
     }
@@ -378,7 +254,7 @@ private fun WorkoutCard(
 @Composable
 private fun WorkoutDetails(
     workout: WorkoutItem, favorite: Boolean, isAdding: Boolean, onBack: () -> Unit,
-    onFavorite: () -> Unit, onAdd: () -> Unit, onDelete: (() -> Unit)?, modifier: Modifier = Modifier
+    onFavorite: () -> Unit, onAdd: () -> Unit, modifier: Modifier = Modifier
 ) {
     LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 120.dp)) {
         item {
@@ -412,65 +288,9 @@ private fun WorkoutDetails(
                     if (isAdding) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary) else Icon(Icons.Default.CheckCircle, null)
                     Spacer(Modifier.width(8.dp)); Text(if (isAdding) "Lagt til i planen" else "Legg til i dagens plan", fontWeight = FontWeight.Bold)
                 }
-                if (onDelete != null) {
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(onClick = onDelete, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(16.dp)) {
-                        Icon(Icons.Default.Delete, null); Spacer(Modifier.width(7.dp)); Text("Slett egen aktivitet")
-                    }
-                }
             }
         }
     }
-}
-
-@Composable
-private fun CreateWorkoutDialog(onDismiss: () -> Unit, onCreate: (WorkoutItem) -> Unit, existingNames: List<String>) {
-    var name by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("Annet") }
-    var duration by remember { mutableStateOf("30 min") }
-    var difficulty by remember { mutableStateOf("Moderat") }
-    var description by remember { mutableStateOf("") }
-    var equipment by remember { mutableStateOf("Valgfritt") }
-    var error by remember { mutableStateOf("") }
-    val categories = listOf("Kondisjon", "Styrke", "Bevegelighet", "Lagidrett", "Annet")
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Lag egen aktivitet") },
-        text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.heightIn(max = 430.dp)) {
-                item { OutlinedTextField(value = name, onValueChange = { name = it; error = "" }, label = { Text("Navn *") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
-                item { Text("Kategori", fontWeight = FontWeight.SemiBold) }
-                item { Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) { categories.forEach { c -> FilterChip(selected = category == c, onClick = { category = c }, label = { Text(c) }) } } }
-                item { OutlinedTextField(value = duration, onValueChange = { duration = it }, label = { Text("Varighet") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
-                item { OutlinedTextField(value = difficulty, onValueChange = { difficulty = it }, label = { Text("Nivå") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
-                item { OutlinedTextField(value = equipment, onValueChange = { equipment = it }, label = { Text("Utstyr") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
-                item { OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Beskrivelse (valgfritt)") }, minLines = 3, modifier = Modifier.fillMaxWidth()) }
-                if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
-            }
-        },
-        confirmButton = {
-            Button(onClick = {
-                val cleanName = name.trim()
-                when {
-                    cleanName.isBlank() -> error = "Skriv inn et navn på aktiviteten."
-                    existingNames.any { it.equals(cleanName, true) } -> error = "Denne aktiviteten finnes allerede."
-                    else -> onCreate(
-                        WorkoutItem(
-                            id = "custom_${UUID.randomUUID()}", name = cleanName, category = category, difficulty = difficulty.ifBlank { "Moderat" },
-                            duration = duration.ifBlank { "Valgfri" }, imageRes = 0,
-                            description = description.ifBlank { "Egen aktivitet lagt til i Treningsvane." },
-                            focus = "Bevegelse og aktivitet", equipment = equipment.ifBlank { "Valgfritt" }, suitableFor = "Tilpasses eget nivå",
-                            session = "Start rolig, gjennomfør aktiviteten i ønsket varighet og avslutt rolig.",
-                            benefits = listOf("Gir deg frihet til å registrere aktiviteter som ikke finnes i standardbiblioteket", "Kan tilpasses din egen hverdag"),
-                            tips = listOf("Start rolig", "Tilpass intensiteten etter dagsform", "Husk pauser og væske ved behov"), isCustom = true
-                        )
-                    )
-                }
-            }) { Text("Opprett") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Avbryt") } }
-    )
 }
 
 @Composable
