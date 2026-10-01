@@ -133,8 +133,10 @@ fun DashboardWidget(
                 }
             }
             Column {
-                Text(text = value, fontWeight = FontWeight.Black, color = Color.Black, fontSize = 24.sp)
-                Text(text = label, color = Color.Black.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 16.sp)
+                Text(text = value, fontWeight = FontWeight.Black, color = Color.Black, fontSize = 24.sp, maxLines = 1)
+                if (label.isNotBlank()) {
+                    Text(text = label, color = Color.Black.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 16.sp, maxLines = 1)
+                }
             }
         }
     }

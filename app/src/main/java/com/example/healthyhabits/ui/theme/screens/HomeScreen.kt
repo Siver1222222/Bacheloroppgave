@@ -174,13 +174,16 @@ fun HomeScreen(
         }
     }
 
-    // Genererer undertekst for streak-widgeten
+    // Formaterer streak-tekst med riktig grammatikk (1 dag vs 2 dager)
+    val streakValue = if (currentStreak == 1) "1 dag" else "$currentStreak dager"
+
+    // Genererer kortere undertekst for streak-widgeten slik at den alltid passer på én linje
     val streakLabel = remember(currentStreak, hasLostStreak) {
         when {
-            currentStreak == 0 && hasLostStreak -> "Start på ny i dag! 💪"
-            currentStreak == 0 -> "Start din første streak! 🔥"
-            currentStreak < 3 -> "God start! Hold koken 🔥"
-            currentStreak < 7 -> "Flott rekke! Stå på 🔥"
+            currentStreak == 0 && hasLostStreak -> "Start på ny! 💪"
+            currentStreak == 0 -> "Start din første! 🔥"
+            currentStreak < 3 -> "God start! 🔥"
+            currentStreak < 7 -> "Flott rekke! 🔥"
             else -> "Uoppstoppelig! 🏆"
         }
     }
@@ -291,7 +294,7 @@ fun HomeScreen(
                 Row(modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     DashboardWidget(
                         title = "Streak", 
-                        value = "$currentStreak dager", 
+                        value = streakValue, 
                         label = streakLabel, 
                         color = softPink, 
                         modifier = Modifier.weight(1f),
