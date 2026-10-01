@@ -9,18 +9,21 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
+// Valg for tidsfiltrering i grafer (Uke, Måned, År)
 enum class GraphFilter {
     WEEK, MONTH, YEAR
 }
 
+// Statusfarger og koder for hver dag i kalenderstripen
 enum class DailyStatus {
-    NO_PLAN,         // Grå (ingen plan)
-    FAILED,          // Oransje/Rød (Planlagt, men 0% gjort)
-    LOW_PERFORMANCE, // Gul (Under 50% gjort)
-    PARTIAL,         // Lavendel (50-99% gjort)
-    COMPLETED        // Neon Lime (100% gjort)
+    NO_PLAN,         // Grå: Ingen planlagt aktivitet
+    FAILED,          // Oransje: Plan lagt til, men 0% gjennomført
+    LOW_PERFORMANCE, // Gul: Under 50% gjennomført
+    PARTIAL,         // Lavendel: 50% til 99% gjennomført
+    COMPLETED        // Neon Lime: 100% fullført
 }
 
+// Datastruktur for et enkelt stolpepunkt i grafene
 data class ProgressionPoint(
     val timestamp: Long, 
     val score: Float, 
@@ -30,9 +33,10 @@ data class ProgressionPoint(
     val totalTasks: Int = 0,
     val activeDays: Int = 0,
     val range: String? = null,
-    val avgPerActivity: Float = 0f // Snitt per aktivitet for denne stolpen
+    val avgPerActivity: Float = 0f
 )
 
+// Datastruktur for oppsummert nøkkeltallsrapport
 data class InsightReport(
     val totalMinutes: Int = 0,
     val avgMinutes: Float = 0f,
@@ -41,19 +45,23 @@ data class InsightReport(
     val totalCompletedTasks: Int = 0,
     val totalPlannedTasks: Int = 0,
     val avgProgress: Int = 0,
-    val avgPerActivity: Float = 0f // Snitt per aktivitet for hele perioden
+    val avgPerActivity: Float = 0f
 )
 
+// ViewModel som håndterer forretningslogikk og tilstand for appen (MVVM-mønsteret)
 class HabitViewModel(
     private val repository: HabitRepository
 ) : ViewModel() {
 
+    // Henter vaner fra databasen som LiveData
     val habits = repository.getAllHabits().asLiveData()
     val habitsWithEntries = repository.getHabitsWithEntries().asLiveData()
 
+    // Valgt tidsfilter for grafvisning (Standard er Uke)
     private val _graphFilter = MutableStateFlow(GraphFilter.WEEK)
     val graphFilter: StateFlow<GraphFilter> = _graphFilter
 
+    // Reaktiv strøm som henger sammen med Room-databasen og oppdaterer UI ved endringer
     val history: StateFlow<List<HabitEntry>> = repository.getAllEntries()
         .stateIn(
             scope = viewModelScope,
@@ -61,11 +69,13 @@ class HabitViewModel(
             initialValue = emptyList()
         )
 
+    // Optimalisert historikk med ferdig-parsede tidsstempler for raskere beregninger
     private val parsedHistory = history.map { entries ->
         val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
         entries.map { it to (sdf.parse(it.date)?.time ?: 0L) }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    // Beregner dagens fullføringsprosent reaktivt (0-100%)
     val dailyProgression: StateFlow<Int> = history.map { entries ->
         val today = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(System.currentTimeMillis())
         val dayEntries = entries.filter { it.date == today }
@@ -74,11 +84,13 @@ class HabitViewModel(
     }.flowOn(Dispatchers.Default)
     .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000), initialValue = 0)
 
+    // Beregner nåværende aktiv streak (sammenhengende treningsdager)
     val currentStreak: StateFlow<Int> = history.map { entries ->
         calculateStreak(entries)
     }.flowOn(Dispatchers.Default)
     .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000), initialValue = 0)
 
+    // Genererer fargekodedata for hver enkelt dag i kalenderstripen
     val calendarStatus: StateFlow<Map<String, DailyStatus>> = history.map { entries ->
         entries.groupBy { it.date }.mapValues { (_, dayEntries) ->
             val total = dayEntries.size
@@ -95,6 +107,7 @@ class HabitViewModel(
     }.flowOn(Dispatchers.Default)
     .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000), initialValue = emptyMap())
     
+    // Beregner stolpepunktene for grafen basert på valgt filter (Uke, Måned, År)
     val progressionData: StateFlow<List<ProgressionPoint>> = combine(parsedHistory, _graphFilter) { entries, filter ->
         val justEntries = entries.map { it.first }
         when (filter) {
@@ -105,15 +118,18 @@ class HabitViewModel(
     }.flowOn(Dispatchers.Default)
     .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000), initialValue = emptyList())
 
+    // Beregner oppsummert nøkkeltallsrapport for innsiktskortene
     val insightReport: StateFlow<InsightReport> = combine(parsedHistory, _graphFilter) { entries, filter ->
         calculateInsightOptimized(entries, filter)
     }.flowOn(Dispatchers.Default)
     .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000), initialValue = InsightReport())
 
+    // Endrer valgt graf-filter (Uke/Måned/År)
     fun setGraphFilter(filter: GraphFilter) {
         _graphFilter.value = filter
     }
 
+    // Legger til nye planlagte aktiviteter i databasen
     fun addPlan(name: String, count: Int, date: String) {
         val cleanName = name.trim()
         val safeCount = count.coerceIn(1, 50)
@@ -126,6 +142,7 @@ class HabitViewModel(
         }
     }
 
+    // Markerer en oppgave som fullført og lagrer tidsbruk
     fun completeTask(entry: HabitEntry, minutes: Int) {
         if (entry.completed) return
         viewModelScope.launch {
@@ -133,15 +150,17 @@ class HabitViewModel(
         }
     }
 
+    // Henter oppgaver for en bestemt dato
     fun getDailyTasks(date: String): List<HabitEntry> = history.value.filter { it.date == date }
 
+    // Beregner nøkkeltall for valgt periode
     private fun calculateInsightOptimized(entries: List<Pair<HabitEntry, Long>>, filter: GraphFilter): InsightReport {
         if (entries.isEmpty()) return InsightReport()
         val now = Calendar.getInstance()
         val currentMonth = now.get(Calendar.MONTH)
         val currentYear = now.get(Calendar.YEAR)
         
-        // Definer uken nøyaktig (Mandag til Søndag)
+        // Definerer ukesstart (Mandag)
         val weekStartCal = Calendar.getInstance().apply { 
             firstDayOfWeek = Calendar.MONDAY
             set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
@@ -153,6 +172,7 @@ class HabitViewModel(
         val weekStart = weekStartCal.timeInMillis
         val weekEnd = weekStartCal.apply { add(Calendar.DAY_OF_YEAR, 7) }.timeInMillis
 
+        // Filtrerer økter for den valgte perioden
         val filtered = entries.filter { (_, time) ->
             when (filter) {
                 GraphFilter.WEEK -> time >= weekStart && time < weekEnd
@@ -187,6 +207,7 @@ class HabitViewModel(
         )
     }
 
+    // Beregner den beste historiske streaken gjennom tidene
     private fun calculateBestStreak(entries: List<HabitEntry>): Int {
         val byDay = entries.groupBy { it.date }
         val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
@@ -211,6 +232,7 @@ class HabitViewModel(
         return best
     }
 
+    // Streak-algoritme: Teller dager bakover. Gir 2 dager pusterom før streaken nullstilles på den 3. dagen
     private fun calculateStreak(entries: List<HabitEntry>): Int {
         if (entries.isEmpty()) return 0
         val byDay = entries.groupBy { it.date }
@@ -225,8 +247,7 @@ class HabitViewModel(
                 streak++
                 inactive = 0
             } else {
-                // I dag får vi fortsatt vise siste aktive streak. Fra i går og bakover
-                // teller tre inaktive dager som brudd på streaken.
+                // Sjekker om brukeren har vært inaktiv i 3 sammenhengende dager
                 if (i != 0) inactive++
                 if (inactive >= 3) break
             }
@@ -235,6 +256,7 @@ class HabitViewModel(
         return streak
     }
 
+    // Beregner grafpunkter for ukesvisning (Mandag til Søndag)
     private fun calculateCurrentWeekPoints(entries: List<HabitEntry>): List<ProgressionPoint> {
         val points = mutableListOf<ProgressionPoint>()
         val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
@@ -265,6 +287,7 @@ class HabitViewModel(
         return points
     }
 
+    // Beregner grafpunkter for månedsvisning (gruppert per uke)
     private fun calculateMonthPoints(entries: List<HabitEntry>): List<ProgressionPoint> {
         val points = mutableListOf<ProgressionPoint>()
         val cal = Calendar.getInstance(); cal.firstDayOfWeek = Calendar.MONDAY
@@ -312,6 +335,7 @@ class HabitViewModel(
         return points
     }
 
+    // Beregner grafpunkter for årsvisning (gruppert per måned)
     private fun calculateYearPoints(entries: List<HabitEntry>): List<ProgressionPoint> {
         val points = mutableListOf<ProgressionPoint>()
         val curY = Calendar.getInstance().get(Calendar.YEAR); val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
@@ -345,6 +369,7 @@ class HabitViewModel(
         return points
     }
 
+    // Database-handlinger for å sette inn, oppdatere og slette aktiviteter
     fun addHabit(habit: Habit) = viewModelScope.launch { repository.insertHabit(habit) }
     fun addEntry(entry: HabitEntry) = viewModelScope.launch { repository.insertEntry(entry) }
     fun deleteAllEntries() = viewModelScope.launch { repository.deleteAllEntries() }

@@ -228,7 +228,7 @@ fun SettingsScreen(context: Context, viewModel: HabitViewModel, darkMode: Boolea
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
             title = { Text("Om Treningsvane") },
-            text = { Text("Treningsvane er laget for å gjøre det enkelt å planlegge aktiviteter, registrere gjennomførte økter og følge utviklingen over tid. Dataene lagres lokalt på enheten.") },
+            text = { Text("Treningsvane er laget for å gjøre det enkelt å planlegge aktiviteter, registrere gjennomførte økter og følge utviklingen over tid. Dataene lagres lokalt på enheten.\n\n🔥 Streak-systemet:\n• Fullfør dagens mål for å øke streaken med 1 dag.\n• Du kan ha inntil 2 dager pusterom før streaken ryker.\n• Ved 3 inaktive dager på rad nullstilles streaken (du får et påminnelsesvarsel kl. 17:00 på den 3. dagen).") },
             confirmButton = { TextButton(onClick = { showAboutDialog = false }) { Text("Lukk") } }
         )
     }

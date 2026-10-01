@@ -6,8 +6,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -98,10 +101,37 @@ fun CalendarStrip(
 }
 
 @Composable
-fun DashboardWidget(title: String, value: String, label: String, color: Color, modifier: Modifier) {
-    Card(modifier = modifier.height(160.dp), shape = RoundedCornerShape(32.dp), colors = CardDefaults.cardColors(containerColor = color)) {
+fun DashboardWidget(
+    title: String, 
+    value: String, 
+    label: String, 
+    color: Color, 
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
+) {
+    Card(
+        modifier = modifier
+            .height(160.dp)
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+        shape = RoundedCornerShape(32.dp),
+        colors = CardDefaults.cardColors(containerColor = color)
+    ) {
         Column(modifier = Modifier.padding(20.dp).fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
-            Text(text = title, fontWeight = FontWeight.Bold, color = Color.Black, fontSize = 18.sp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = title, fontWeight = FontWeight.Bold, color = Color.Black, fontSize = 18.sp)
+                if (onClick != null) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Info om $title",
+                        tint = Color.Black.copy(alpha = 0.45f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
             Column {
                 Text(text = value, fontWeight = FontWeight.Black, color = Color.Black, fontSize = 24.sp)
                 Text(text = label, color = Color.Black.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 16.sp)

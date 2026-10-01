@@ -1,5 +1,6 @@
 package com.example.healthyhabits.ui.theme.screens
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,9 +18,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.healthyhabits.ui.theme.components.CalendarStrip
@@ -30,25 +33,51 @@ import com.example.healthyhabits.data.local.DailyStatus
 import java.text.SimpleDateFormat
 import java.util.*
 
+// Hovedskjermen som viser daglig overblikk, ukeskalender, streak og oppgaveliste
 @Composable
 fun HomeScreen(
     viewModel: HabitViewModel,
     onSave: (Int) -> Unit = {}
 ) {
+    // Henter tilstand fra ViewModel (reaktiv samling med StateFlow)
     val history by viewModel.history.collectAsState()
     val dailyProgression by viewModel.dailyProgression.collectAsState()
     val currentStreak by viewModel.currentStreak.collectAsState()
     val calendarStatus by viewModel.calendarStatus.collectAsState()
     
+    // Henter og lytter på endringer i brukernavnet fra SharedPreferences
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("healthy_habits", Context.MODE_PRIVATE) }
+    var userName by remember { mutableStateOf(prefs.getString("user_name", "")?.trim().orEmpty()) }
+
+    // Registrerer en OnSharedPreferenceChangeListener slik at navnet oppdateres umiddelbart
+    DisposableEffect(Unit) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
+            if (key == "user_name") {
+                userName = p.getString("user_name", "")?.trim().orEmpty()
+            }
+        }
+        userName = prefs.getString("user_name", "")?.trim().orEmpty()
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
+    // Genererer tilfeldig frø for å gi variert hilsen hver gang appen/skjermen åpnes
+    val sessionSeed = remember { Random().nextInt(100) }
+
     val localeNo = Locale("nb", "NO")
     val todayDateStr = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date())
     var selectedDate by remember { mutableStateOf(todayDateStr) }
     var currentWeekOffset by remember { mutableIntStateOf(0) }
     
+    // Tilstander for å styre dialogbokser for bekreftelse, redigering og informasjon
     var selectedDayDetails by remember { mutableStateOf<String?>(null) }
     var taskToVerify by remember { mutableStateOf<HabitEntry?>(null) }
     var taskToEdit by remember { mutableStateOf<HabitEntry?>(null) }
     var verificationMinutes by remember { mutableStateOf("") }
+    var showStreakInfoDialog by remember { mutableStateOf(false) }
 
     var showPlanDialog by remember { mutableStateOf(false) }
     var planName by remember { mutableStateOf("") }
@@ -56,13 +85,16 @@ fun HomeScreen(
     var planDate by remember { mutableStateOf(todayDateStr) }
     var planErrorMessage by remember { mutableStateOf<String?>(null) }
 
+    // Tema-farger
     val neonLime = MaterialTheme.colorScheme.primary
     val lavender = MaterialTheme.colorScheme.secondary
     val softPink = MaterialTheme.colorScheme.tertiary
     val deepDark = MaterialTheme.colorScheme.background
 
+    // Filtrerer oppgaver for den valgte kalenderdatoen
     val selectedDateTasks = history.filter { it.date == selectedDate }
 
+    // Formatere visning av måned og år i kalenderetoppen
     val displayedMonthYear = remember(currentWeekOffset) {
         val cal = Calendar.getInstance()
         cal.add(Calendar.WEEK_OF_YEAR, currentWeekOffset)
@@ -70,12 +102,87 @@ fun HomeScreen(
         SimpleDateFormat("MMMM yyyy", localeNo).format(cal.time).replaceFirstChar { it.uppercase() }
     }
 
-    val statusText = when {
-        dailyProgression == 0 -> "Klar for en god start? 🚀"
-        dailyProgression < 40 -> "God begynnelse! 👟"
-        dailyProgression < 70 -> "Du er i flyten nå! 🔥"
-        dailyProgression < 100 -> "Nesten i mål! ⚡"
-        else -> "MÅL OPPNÅDD! 🎉"
+    // Sjekker om brukeren har mistet en tidligere oppbygd streak
+    val hasLostStreak = remember(currentStreak, history) { currentStreak == 0 && history.any { it.completed } }
+
+    // Genererer dynamisk hilsen basert på tid på døgnet, progresjon, brukernavn og streak-status
+    val statusText = remember(dailyProgression, userName, sessionSeed, hasLostStreak) {
+        val nameSuffix = if (userName.isNotBlank()) ", $userName" else ""
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val timeGreeting = when (hour) {
+            in 5..11 -> "God morgen"
+            in 12..16 -> "God dag"
+            in 17..22 -> "God kveld"
+            else -> "God natt"
+        }
+
+        if (dailyProgression == 0) {
+            if (hasLostStreak) {
+                val lostStreakOptions = listOf(
+                    "Mistet streaken$nameSuffix? Ingen fare – i dag starter vi på nytt! 💪",
+                    "Sprekk i streaken$nameSuffix? Tørk støvet av skoene og kom igjen! 🚀",
+                    "Ny sjanse i dag$nameSuffix! Bygg opp en ny, sterk streak 🔥",
+                    "En sprekk stopper deg ikke$nameSuffix! Kom sterkere tilbake 💪",
+                    "Mistet streaken? Nullstill og start den nye rekken i dag$nameSuffix! 🏆"
+                )
+                lostStreakOptions[sessionSeed % lostStreakOptions.size]
+            } else {
+                val startOptions = listOf(
+                    "$timeGreeting$nameSuffix! Klar for en god start? 🚀",
+                    "Klar for en god start$nameSuffix? 🚀",
+                    "Velkommen tilbake$nameSuffix! Hva skal vi oppnå i dag? 🚀",
+                    "Ny dag, nye muligheter$nameSuffix! 🚀",
+                    "$timeGreeting$nameSuffix! Klar for en spreker dag? 👟"
+                )
+                startOptions[sessionSeed % startOptions.size]
+            }
+        } else {
+            when {
+                dailyProgression < 40 -> {
+                    val options = listOf(
+                        "God begynnelse$nameSuffix! Ny streak på gang 👟",
+                        "Flott start$nameSuffix! Fortsett slik 👟",
+                        "Bra jobba så langt$nameSuffix! 👟"
+                    )
+                    options[sessionSeed % options.size]
+                }
+                dailyProgression < 70 -> {
+                    val options = listOf(
+                        "Du er i flyten nå$nameSuffix! 🔥",
+                        "Sterk innsats$nameSuffix! Stå på! 🔥",
+                        "Hold trykket oppe$nameSuffix! 🔥"
+                    )
+                    options[sessionSeed % options.size]
+                }
+                dailyProgression < 100 -> {
+                    val options = listOf(
+                        "Nesten i mål$nameSuffix! ⚡",
+                        "Siste innspurt nå$nameSuffix! ⚡",
+                        "Du nærmer deg 100%$nameSuffix! ⚡"
+                    )
+                    options[sessionSeed % options.size]
+                }
+                else -> {
+                    val options = listOf(
+                        "MÅL OPPNÅDD$nameSuffix! 🎉",
+                        "Fantastisk gjennomført$nameSuffix! 🏆",
+                        "Alt i boksen for i dag$nameSuffix! 🎉"
+                    )
+                    options[sessionSeed % options.size]
+                }
+            }
+        }
+    }
+
+    // Genererer undertekst for streak-widgeten
+    val streakLabel = remember(currentStreak, hasLostStreak) {
+        when {
+            currentStreak == 0 && hasLostStreak -> "Start på ny i dag! 💪"
+            currentStreak == 0 -> "Start din første streak! 🔥"
+            currentStreak < 3 -> "God start! Hold koken 🔥"
+            currentStreak < 7 -> "Flott rekke! Stå på 🔥"
+            else -> "Uoppstoppelig! 🏆"
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(deepDark)) {
@@ -83,6 +190,7 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 120.dp)
         ) {
+            // Tittel og knapp for å legge til ny plan
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(24.dp),
@@ -96,6 +204,7 @@ fun HomeScreen(
                 }
             }
 
+            // Kalendertopp med knapper for å bla mellom uker
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), 
@@ -127,6 +236,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
+            // Interaktiv kalenderstripe (CalendarStrip)
             item {
                 CalendarStrip(
                     accentColor = neonLime, 
@@ -156,23 +266,83 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
+            // Kort med den dynamiske hilsenen
             item {
-                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(100.dp), shape = RoundedCornerShape(32.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f))) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).heightIn(min = 100.dp),
+                    shape = RoundedCornerShape(32.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f))
+                ) {
                     Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.CenterStart) {
-                        Text(text = statusText, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = neonLime)
+                        Text(
+                            text = statusText,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Black,
+                            color = neonLime,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
+            // Dashboard widgets for Streak og Dagens Mål
             item {
                 Row(modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    DashboardWidget(title = "Streak", value = "$currentStreak dager", label = "Hold koken! 🔥", color = softPink, modifier = Modifier.weight(1f))
-                    DashboardWidget(title = "Dagens Mål", value = "$dailyProgression%", label = "Fullføringsgrad", color = lavender, modifier = Modifier.weight(1f))
+                    DashboardWidget(
+                        title = "Streak", 
+                        value = "$currentStreak dager", 
+                        label = streakLabel, 
+                        color = softPink, 
+                        modifier = Modifier.weight(1f),
+                        onClick = { showStreakInfoDialog = true }
+                    )
+                    DashboardWidget(
+                        title = "Dagens Mål", 
+                        value = "$dailyProgression%", 
+                        label = "Fullføringsgrad", 
+                        color = lavender, 
+                        modifier = Modifier.weight(1f)
+                    )
                 }
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
+            // Motivasjonskort som vises dersom brukeren har mistet streaken sin
+            if (hasLostStreak && dailyProgression == 0) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = softPink.copy(alpha = 0.15f)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, softPink.copy(alpha = 0.4f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(18.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = "💪", fontSize = 28.sp)
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column {
+                                Text(
+                                    text = "Opp igjen på hesten!",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Du har mistet streaken din, men alle gode vaner bygges dag for dag. Fullfør en aktivitet i dag for å starte en ny!",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+            }
+
+            // Liste over oppgaver for den valgte datoen
             if (selectedDateTasks.isNotEmpty()) {
                 item {
                     val label = if (selectedDate == todayDateStr) "Dagens oppgaver" else "Oppgaver for $selectedDate"
@@ -200,11 +370,14 @@ fun HomeScreen(
             }
         }
 
-        // DIALOGS
+        // --- DIALOGBOKSER ---
+
+        // Dialog som viser detaljer om status for en valgt dag
         if (selectedDayDetails != null) {
             AlertDialog(onDismissRequest = { selectedDayDetails = null }, confirmButton = { TextButton(onClick = { selectedDayDetails = null }) { Text("Lukk", color = neonLime) } }, title = { Text("Dagens Status") }, text = { Text(selectedDayDetails!!) }, containerColor = MaterialTheme.colorScheme.surface, titleContentColor = MaterialTheme.colorScheme.onBackground, textContentColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
         }
 
+        // Dialog for verifisering og registrering av minutter ved fullføring av økt
         if (taskToVerify != null) {
             AlertDialog(
                 onDismissRequest = { taskToVerify = null },
@@ -222,6 +395,7 @@ fun HomeScreen(
             )
         }
 
+        // Dialog for å redigere navnet eller varigheten på en oppgave
         if (taskToEdit != null) {
             var n by remember { mutableStateOf(taskToEdit!!.activityName) }
             var m by remember { mutableStateOf(taskToEdit!!.minutes.toString()) }
@@ -267,6 +441,7 @@ fun HomeScreen(
             )
         }
 
+        // Dialog for å oprette nye planlagte aktiviteter for en dato
         if (showPlanDialog) {
             AlertDialog(
                 onDismissRequest = { showPlanDialog = false },
@@ -306,9 +481,35 @@ fun HomeScreen(
                 containerColor = MaterialTheme.colorScheme.surface, titleContentColor = MaterialTheme.colorScheme.onBackground
             )
         }
+
+        // Dialog som forklarer hvordan streak-systemet fungerer i detalj
+        if (showStreakInfoDialog) {
+            AlertDialog(
+                onDismissRequest = { showStreakInfoDialog = false },
+                title = { Text("Slik fungerer Streaken 🔥", color = MaterialTheme.colorScheme.onBackground) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("• 🔥 Fullfør dagens planer for å øke streaken med 1 dag.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f))
+                        Text("• ⏳ Du har inntil 2 dager uten trening uten at streaken din ryker.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f))
+                        Text("• ⚠️ Ved 3 dager på rad uten registrert økt, nullstilles streaken.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f))
+                        Text("• 🔔 Du får en påminnelse kl. 17:00 på den 3. dagen slik at du rekker å redde den!", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f))
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { showStreakInfoDialog = false },
+                        colors = ButtonDefaults.buttonColors(containerColor = neonLime, contentColor = MaterialTheme.colorScheme.onPrimary)
+                    ) {
+                        Text("Skjønner!")
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        }
     }
 }
 
+// Komponent for å tegne en enkelt oppgave i oppgavelisten
 @Composable
 fun TaskItem(task: HabitEntry, accentColor: Color, isToday: Boolean, onComplete: (HabitEntry) -> Unit, onEdit: (HabitEntry) -> Unit, onDelete: (HabitEntry) -> Unit) {
     Card(
@@ -318,6 +519,7 @@ fun TaskItem(task: HabitEntry, accentColor: Color, isToday: Boolean, onComplete:
         border = if (!task.completed) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)) else null
     ) {
         Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Avkrysningsboks for fullføring
             Checkbox(
                 checked = task.completed, 
                 onCheckedChange = { if (!task.completed && isToday) onComplete(task) }, 
@@ -333,6 +535,7 @@ fun TaskItem(task: HabitEntry, accentColor: Color, isToday: Boolean, onComplete:
                     Text(text = "Kan kun fullføres på datoen", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), fontSize = 10.sp)
                 }
             }
+            // Knapper for å endre eller slette oppgaven
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { onEdit(task) }) { 
                     Icon(Icons.Default.Edit, contentDescription = "Endre", tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), modifier = Modifier.size(20.dp)) 
