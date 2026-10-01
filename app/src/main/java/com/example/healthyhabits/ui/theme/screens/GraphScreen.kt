@@ -118,9 +118,15 @@ fun GraphScreen(
                     color = scheme.onSurfaceVariant
                 )
             } else {
+                // Beregner snittverdi basert på de aktive søylene som vises i grafen (slik at den stiplete linjen gir mening)
+                val activePoints = progressionPoints.filter { it.minutes > 0 }
+                val calculatedAvg = if (activePoints.isNotEmpty()) {
+                    activePoints.map { it.minutes }.average().toFloat()
+                } else 0f
+
                 HabitBarChart(
                     points = progressionPoints,
-                    avgValue = insight.avgMinutes,
+                    avgValue = calculatedAvg,
                     onPointSelected = { selectedPoint = it }
                 )
             }
@@ -300,10 +306,13 @@ fun HabitBarChart(
 
             chart.axisLeft.removeAllLimitLines()
             if (avgValue > 0f) {
-                val ll = LimitLine(avgValue, "").apply {
+                val ll = LimitLine(avgValue, "Snitt: %.0f min".format(avgValue)).apply {
                     lineWidth = 1.5f
                     enableDashedLine(10f, 10f, 0f)
                     lineColor = averageLineColor 
+                    textColor = averageLineColor
+                    textSize = 10f
+                    labelPosition = LimitLine.LimitLabelPosition.RIGHT_TOP
                 }
                 chart.axisLeft.addLimitLine(ll)
                 chart.axisLeft.setDrawLimitLinesBehindData(false)
