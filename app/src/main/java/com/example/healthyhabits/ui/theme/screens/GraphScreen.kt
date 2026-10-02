@@ -166,10 +166,10 @@ fun GraphScreen(
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = if (selectedFilter == GraphFilter.YEAR) {
-                            "📅 Fullførte aktivitetsdager : ${selectedPoint!!.activeDays}"
-                        } else {
+                        text = if (selectedFilter == GraphFilter.WEEK) {
                             "✅ Fullførte aktiviteter : ${selectedPoint!!.completedTasks}"
+                        } else {
+                            "📅 Fullførte aktivitetsdager : ${selectedPoint!!.activeDays}"
                         },
                         color = Color(0xFFFFA000),
                         fontSize = 14.sp
