@@ -4,6 +4,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
+// Fargepalett for mørk modus (Standard tema)
 private val DashboardDarkColorScheme = darkColorScheme(
     primary = NeonLime,
     secondary = Lavender,
@@ -22,8 +23,7 @@ private val DashboardDarkColorScheme = darkColorScheme(
     onError = Color.Black
 )
 
-// Light mode uses the same visual identity as dark mode, but with
-// dedicated surfaces/text colors so every element keeps readable contrast.
+// Fargepalett for lyst tema med optimalisert kontrast
 private val DashboardLightColorScheme = lightColorScheme(
     primary = Color(0xFF5B6500),
     onPrimary = Color.White,
@@ -48,6 +48,7 @@ private val DashboardLightColorScheme = lightColorScheme(
     onError = Color.White
 )
 
+// Hovedtema-komponent for appen som setter farger og typografi
 @Composable
 fun TreningsvaneTheme(
     darkTheme: Boolean = true,

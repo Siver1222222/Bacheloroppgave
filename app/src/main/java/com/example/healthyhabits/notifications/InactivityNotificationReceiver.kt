@@ -65,7 +65,7 @@ class InactivityNotificationReceiver : BroadcastReceiver() {
         }
     }
 
-    // Bygger og viser push-varselet på telefonen
+    // Bygger og viser push varselet på telefonen
     private fun showNotification(context: Context): Boolean {
         // Sjekker om varslingstillatelse er gitt på Android 13+
         if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false

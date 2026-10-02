@@ -2,6 +2,7 @@ package com.example.healthyhabits.data.local
 
 import kotlinx.coroutines.flow.Flow
 
+// Repository-mønster som fungerer som et rent abstraksjonslag mellom DAO og ViewModel
 class HabitRepository(
     private val habitDao: HabitDao
 ) {

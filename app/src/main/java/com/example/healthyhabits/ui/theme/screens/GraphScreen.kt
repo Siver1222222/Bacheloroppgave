@@ -45,17 +45,20 @@ import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import com.github.mikephil.charting.highlight.Highlight
 import com.github.mikephil.charting.listener.OnChartValueSelectedListener
 
+// # 1. HOVEDSKJERM FOR GRAF OG ANALYSE (GraphScreen)
 @Composable
 fun GraphScreen(
     viewModel: HabitViewModel = viewModel()
 ) {
+    // Henter reaktive tilstander fra ViewModel
     val progressionPoints by viewModel.progressionData.collectAsState()
     val selectedFilter by viewModel.graphFilter.collectAsState()
     val insight by viewModel.insightReport.collectAsState()
     
+    // Holder styr på hvilken stolpe/punkt brukeren har trykket på i grafen
     var selectedPoint by remember { mutableStateOf<ProgressionPoint?>(null) }
 
-    // Tilbakestill valg når filter endres
+    // Tilbakestiller valgt punkt når filteret (Uke/Måned/År) endres
     LaunchedEffect(selectedFilter) {
         selectedPoint = null
     }
@@ -73,7 +76,7 @@ fun GraphScreen(
             .verticalScroll(rememberScrollState())
             .padding(bottom = 120.dp)
     ) {
-        // --- HEADER ---
+        // # 2. HEADER SEKSJON
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -101,7 +104,7 @@ fun GraphScreen(
             }
         }
 
-        // --- CHART AREA ---
+        // # 3. GRAF OMRÅDE (MPAndroidChart Integrasjon)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -118,7 +121,7 @@ fun GraphScreen(
                     color = scheme.onSurfaceVariant
                 )
             } else {
-                // Beregner snittverdi basert på de aktive søylene som vises i grafen (slik at den stiplete linjen gir mening)
+                // Beregner gjennomsnittsverdi basert på aktive søyler for den stiplete snittlinjen
                 val activePoints = progressionPoints.filter { it.minutes > 0 }
                 val calculatedAvg = if (activePoints.isNotEmpty()) {
                     activePoints.map { it.minutes }.average().toFloat()
@@ -132,7 +135,7 @@ fun GraphScreen(
             }
         }
 
-        // --- TOOLTIP / DETAILS ---
+        // # 4. DETALJKORT (Vises når brukeren trykker på en stolpe i grafen)
         if (selectedPoint != null) {
             Spacer(modifier = Modifier.height(16.dp))
             Card(
@@ -187,7 +190,7 @@ fun GraphScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // --- STATISTICS SECTION ---
+        // # 5. STATISTIKK GRID SEKSJON
         Column(modifier = Modifier.padding(horizontal = 24.dp)) {
             Text(
                 text = "Statistikk 📊",
@@ -218,7 +221,7 @@ fun GraphScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // --- FILTERS ---
+        // # 6. FILTER-KNAPPER (Uke, Måned, År)
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
@@ -230,6 +233,7 @@ fun GraphScreen(
     }
 }
 
+// # 7. MPANDROIDCHART WRAPPER FOR JETPACK COMPOSE
 @Composable
 fun HabitBarChart(
     points: List<ProgressionPoint>,
@@ -288,7 +292,7 @@ fun HabitBarChart(
         },
         modifier = Modifier.fillMaxSize(),
         update = { chart ->
-            // Oppdater listeneren i hver 'update' for å sikre at den bruker de nyeste punktene
+            // Registrerer lytter når brukeren trykker på en søyle i diagrammet
             chart.setOnChartValueSelectedListener(object : OnChartValueSelectedListener {
                 override fun onValueSelected(e: Entry, h: Highlight) {
                     val index = e.x.toInt()
@@ -308,6 +312,7 @@ fun HabitBarChart(
             chart.xAxis.setLabelCount(labels.size, false)
             chart.xAxis.labelRotationAngle = if (labels.size > 10) -45f else 0f
 
+            // Legger til den stiplete gjennomsnittslinjen (LimitLine) med tekstetikett
             chart.axisLeft.removeAllLimitLines()
             if (avgValue > 0f) {
                 val ll = LimitLine(avgValue, "Snitt: %.0f min".format(avgValue)).apply {
@@ -345,6 +350,7 @@ fun HabitBarChart(
     )
 }
 
+// # 8. HJELPEKOMPONENTER (FilterButton, InsightCardComponent)
 @Composable
 fun FilterButton(
     text: String,

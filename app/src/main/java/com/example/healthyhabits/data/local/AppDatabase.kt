@@ -5,12 +5,15 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
+// Room Database-klasse som definerer tabeller og gir tilgang til DAO-objekter
 @Database(entities = [Habit::class, HabitEntry::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     
+    // Returnerer Data Access Object for vaner og oppføringer
     abstract fun habitDao(): HabitDao
 
     companion object {
+        // Singleton-forekomst for å unngå flere samtidige database-tilkoblinger
         @Volatile private var INSTANCE: AppDatabase? = null
 
         fun getDatabase(context: Context): AppDatabase {

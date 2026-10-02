@@ -16,7 +16,7 @@ object NotificationScheduler {
     fun isEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(ENABLED_KEY, true)
 
-    // Aktiverer eller deaktiverer påminnelser
+    // Aktiverer og deaktiverer påminnelser
     fun setEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(ENABLED_KEY, enabled).apply()
         if (enabled) schedule(context) else cancel(context)

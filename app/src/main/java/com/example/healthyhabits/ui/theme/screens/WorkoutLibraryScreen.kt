@@ -40,6 +40,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+// # 1. DATAMODELL FOR TRENINGSØVELSER I BIBLIOTEKET
 private data class WorkoutItem(
     val id: String,
     val name: String,
@@ -56,12 +57,14 @@ private data class WorkoutItem(
     val tips: List<String>,
 )
 
+// Hjelpefunksjon for å opprette innebygde treningsaktiviteter
 private fun builtIn(
     id: String, name: String, category: String, difficulty: String, duration: String, imageRes: Int,
     description: String, focus: String, equipment: String, suitableFor: String, session: String,
     benefits: List<String>, tips: List<String>
 ) = WorkoutItem(id, name, category, difficulty, duration, imageRes, description, focus, equipment, suitableFor, session, benefits, tips)
 
+// # 2. FORDEFINERT LISTE OVER TRENINGSØVELSER
 private val workouts = listOf(
     builtIn("running", "Løping", "Kondisjon", "Moderat", "20–60 min", R.drawable.workout_running,
         "Løping er en enkel kondisjonsaktivitet som kan tilpasses fra rolig jogg til raskere økter.",
@@ -108,6 +111,7 @@ private val workouts = listOf(
 private const val PREFS = "healthy_habits"
 private const val FAVORITES_KEY = "library_favorites"
 
+// # 3. HOVEDSKJERM FOR TRENINGSBIBLIOTEK (WorkoutLibraryScreen)
 @Composable
 fun WorkoutLibraryScreen(viewModel: HabitViewModel) {
     val context = LocalContext.current
@@ -122,11 +126,13 @@ fun WorkoutLibraryScreen(viewModel: HabitViewModel) {
     val scope = rememberCoroutineScope()
     val today = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date()) }
 
+    // Funksjon for å legge til eller fjerne favoritter
     fun toggleFavorite(workout: WorkoutItem) {
         favorites = if (workout.id in favorites) favorites - workout.id else favorites + workout.id
         saveFavorites(prefs, favorites)
     }
 
+    // Funksjon for å legge til en øvelse direkte i dagens plan
     fun addWorkout(workout: WorkoutItem) {
         if (workout.id in addingIds) return
         addingIds = addingIds + workout.id
@@ -138,6 +144,7 @@ fun WorkoutLibraryScreen(viewModel: HabitViewModel) {
         }
     }
 
+    // Filtrering basert på søk, kategori og favoritter
     val categories = listOf("Alle", "Kondisjon", "Styrke", "Bevegelighet", "Lagidrett")
     val filtered = workouts.filter {
         val matchesSearch = search.isBlank() || it.name.contains(search, true) || it.category.contains(search, true) || it.focus.contains(search, true)
@@ -156,6 +163,7 @@ fun WorkoutLibraryScreen(viewModel: HabitViewModel) {
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 120.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // Seksjon med tittel, søkefelt og filterknapper
                 item {
                     Text("Treningsbibliotek", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
                     Spacer(Modifier.height(4.dp))
@@ -180,6 +188,7 @@ fun WorkoutLibraryScreen(viewModel: HabitViewModel) {
                     }
                 }
 
+                // Viser listen over filtrerte øvelser
                 items(filtered, key = { it.id }) { workout ->
                     WorkoutCard(
                         workout = workout, favorite = workout.id in favorites, isAdding = workout.id in addingIds,
@@ -200,6 +209,7 @@ fun WorkoutLibraryScreen(viewModel: HabitViewModel) {
                 }
             }
         } else {
+            // Viser detaljvisning for valgt øvelse
             WorkoutDetails(
                 workout = selected!!, favorite = selected!!.id in favorites, isAdding = selected!!.id in addingIds,
                 onBack = { selected = null }, onFavorite = { toggleFavorite(selected!!) }, onAdd = { addWorkout(selected!!) },
@@ -209,6 +219,7 @@ fun WorkoutLibraryScreen(viewModel: HabitViewModel) {
     }
 }
 
+// # 4. HJELPEFUNKSJONER FOR FAVORITTER (SharedPreferences)
 private fun loadFavorites(prefs: SharedPreferences): Set<String> =
     prefs.getStringSet(FAVORITES_KEY, emptySet())?.toSet() ?: emptySet()
 
@@ -216,6 +227,7 @@ private fun saveFavorites(prefs: SharedPreferences, favorites: Set<String>) {
     prefs.edit().putStringSet(FAVORITES_KEY, favorites).apply()
 }
 
+// # 5. KORTKOMPONENT FOR ENKELTØVELSE (WorkoutCard)
 @Composable
 private fun WorkoutCard(
     workout: WorkoutItem, favorite: Boolean, isAdding: Boolean,
@@ -251,6 +263,7 @@ private fun WorkoutCard(
     }
 }
 
+// # 6. DETALJVISNING FOR EN ØVELSE (WorkoutDetails)
 @Composable
 private fun WorkoutDetails(
     workout: WorkoutItem, favorite: Boolean, isAdding: Boolean, onBack: () -> Unit,
@@ -293,6 +306,7 @@ private fun WorkoutDetails(
     }
 }
 
+// # 7. UI HJELPEKOMPONENTER
 @Composable
 private fun WorkoutImage(workout: WorkoutItem, modifier: Modifier) {
     if (workout.imageRes != 0) {

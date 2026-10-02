@@ -24,6 +24,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.healthyhabits.ui.theme.Screen
 
+// Bunnmeny-komponent for navigasjon mellom appens hovedskjermer
 @Composable
 fun BottomNavBar(navController: NavController) {
     val currentRoute by navController.currentBackStackEntryAsState()
@@ -49,6 +50,7 @@ fun BottomNavBar(navController: NavController) {
     }
 }
 
+// Hjelpefunksjon for sikker navigasjon uten å duplisere skjermer i stabelen
 private fun navigate(navController: NavController, route: String) {
     if (navController.currentDestination?.route == route) return
     navController.navigate(route) {
@@ -58,6 +60,7 @@ private fun navigate(navController: NavController, route: String) {
     }
 }
 
+// Enkeltstående menyelement i bunnmenyen
 @Composable
 fun NavItem(icon: ImageVector, label: String, isSelected: Boolean, selectedColor: Color, onClick: () -> Unit) {
     Box(

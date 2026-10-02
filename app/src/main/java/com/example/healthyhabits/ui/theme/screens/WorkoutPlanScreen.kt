@@ -28,10 +28,12 @@ import com.example.healthyhabits.ui.theme.components.CalendarStrip
 import java.text.SimpleDateFormat
 import java.util.*
 
+// # 1. HOVEDSKJERM FOR PLANLEGGING (WorkoutPlanScreen)
 @Composable
 fun WorkoutPlanScreen(
     viewModel: HabitViewModel
 ) {
+    // Henter historikk og kalenderstatus reaktivt fra ViewModel
     val history by viewModel.history.collectAsState(initial = emptyList())
     val calendarStatus by viewModel.calendarStatus.collectAsState()
     
@@ -40,6 +42,7 @@ fun WorkoutPlanScreen(
     var selectedDate by remember { mutableStateOf(todayStr) }
     var currentWeekOffset by remember { mutableIntStateOf(0) }
     
+    // Tilstander for dialoger og sletting/redigering
     var editingEntry by remember { mutableStateOf<HabitEntry?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
     var entryToDelete by remember { mutableStateOf<HabitEntry?>(null) }
@@ -49,6 +52,7 @@ fun WorkoutPlanScreen(
     val lavender = MaterialTheme.colorScheme.secondary
     val deepDark = MaterialTheme.colorScheme.background
 
+    // Viser måned og år for den valgte uken i kalenderstripen
     val displayedMonthYear = remember(currentWeekOffset) {
         val cal = Calendar.getInstance()
         cal.add(Calendar.WEEK_OF_YEAR, currentWeekOffset)
@@ -56,8 +60,10 @@ fun WorkoutPlanScreen(
         SimpleDateFormat("MMMM yyyy", localeNo).format(cal.time).replaceFirstChar { it.uppercase() }
     }
 
+    // Filtrerer oppgaver for den valgte datoen
     val selectedDateTasks = history.filter { it.date == selectedDate }
     
+    // Sjekker om datoen er i fortiden (slik at den kan låses for redigering/planlegging)
     val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
     fun isPastDate(dateStr: String): Boolean {
         return try {
@@ -70,6 +76,7 @@ fun WorkoutPlanScreen(
     Scaffold(
         containerColor = deepDark,
         floatingActionButton = {
+            // Viser flytende "Legg til"-knapp (FAB) kun for dager i dag eller fremtiden
             if (!isPastDate(selectedDate)) {
                 FloatingActionButton(
                     onClick = { showAddDialog = true },
@@ -88,6 +95,7 @@ fun WorkoutPlanScreen(
                 .padding(innerPadding),
             contentPadding = PaddingValues(bottom = 100.dp)
         ) {
+            // # 2. HEADER
             item {
                 Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp)) {
                     Text(text = "Treningsplan 📝", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
@@ -95,6 +103,7 @@ fun WorkoutPlanScreen(
                 }
             }
 
+            // # 3. UKESNAVIGASJON
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), 
@@ -126,6 +135,7 @@ fun WorkoutPlanScreen(
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
+            // # 4. KALENDERSTRIPE
             item {
                 CalendarStrip(
                     accentColor = neonLime,
@@ -137,6 +147,7 @@ fun WorkoutPlanScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
+            // # 5. DAGENS OPPGAVER OVERSKRIFT OG SLETTE-ALLE KNAPP
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
@@ -153,6 +164,7 @@ fun WorkoutPlanScreen(
                 }
             }
 
+            // # 6. OPPGAVELISTE ELLER TOMT-MELDING
             if (selectedDateTasks.isEmpty()) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
@@ -177,6 +189,7 @@ fun WorkoutPlanScreen(
         }
     }
 
+    // # 7. DIALOGER (Legg til plan, rediger, slett enkeltøvelse, tøm dag)
     if (showAddDialog) {
         PlanDialog(selectedDate, onDismiss = { showAddDialog = false }, onSave = { n, c, d -> viewModel.addPlan(n, c, d); showAddDialog = false }, neonLime = neonLime)
     }
@@ -212,6 +225,7 @@ fun WorkoutPlanScreen(
     }
 }
 
+// # 8. KORT FOR ENKELTOPPGAVE I PLANEN (PlanCard)
 @Composable
 fun PlanCard(entry: HabitEntry, onEdit: () -> Unit, onDelete: () -> Unit) {
     Card(
@@ -233,6 +247,7 @@ fun PlanCard(entry: HabitEntry, onEdit: () -> Unit, onDelete: () -> Unit) {
     }
 }
 
+// # 9. DIALOG FOR Å PLANLEGGE NY AKTIVITET (PlanDialog)
 @Composable
 fun PlanDialog(initialDate: String, onDismiss: () -> Unit, onSave: (String, Int, String) -> Unit, neonLime: Color) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -278,6 +293,7 @@ fun PlanDialog(initialDate: String, onDismiss: () -> Unit, onSave: (String, Int,
     )
 }
 
+// # 10. DIALOG FOR Å REDIGERE EKSISTERENDE AKTIVITET (EditDialog)
 @Composable
 fun EditDialog(entry: HabitEntry, onDismiss: () -> Unit, onSave: (HabitEntry) -> Unit, neonLime: Color) {
     var name by remember { mutableStateOf(entry.activityName) }
