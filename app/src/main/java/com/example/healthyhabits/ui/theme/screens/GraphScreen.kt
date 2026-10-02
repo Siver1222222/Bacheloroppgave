@@ -166,14 +166,14 @@ fun GraphScreen(
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "✅ Fullførte aktiviteter : ${selectedPoint!!.completedTasks}",
+                        text = "✅ Fullførte økter : ${selectedPoint!!.completedTasks}",
                         color = Color(0xFFFFA000),
                         fontSize = 14.sp
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "📈 Snitt per aktivitet : %.1f min".format(selectedPoint!!.avgPerActivity),
+                        text = "📈 Snitt per økt : %.1f min".format(selectedPoint!!.avgPerActivity),
                         color = Color(0xFF00C853),
                         fontSize = 14.sp
                     )
@@ -197,7 +197,7 @@ fun GraphScreen(
                 InsightItemData("Beste Streak", "${insight.bestStreak}d", Icons.Default.LocalFireDepartment, Color(0xFFFF9800)),
                 InsightItemData("Fullført", "${insight.totalCompletedTasks}/${insight.totalPlannedTasks}", Icons.Default.CheckCircle, neonLime),
                 InsightItemData("Total Tid", "${insight.totalMinutes} min", Icons.Default.Info, softPink),
-                InsightItemData("Snitt per aktivitet", "%.1f min".format(insight.avgPerActivity), Icons.Default.AutoGraph, Color(0xFF58A6FF))
+                InsightItemData("Snitt per økt", "%.1f min".format(insight.avgPerActivity), Icons.Default.AutoGraph, Color(0xFF58A6FF))
             )
 
             LazyVerticalGrid(
