@@ -270,6 +270,8 @@ class HabitViewModel(
             val d = sdf.format(cal.time); val tasks = byDay[d] ?: emptyList()
             val completed = tasks.count { it.completed }
             val totalMins = tasks.sumOf { it.minutes }
+            // En dag teller som fullført aktivitetsdag (activeDays = 1) kun hvis det finnes oppgaver og ALLE er fullført
+            val isDayCompleted = tasks.isNotEmpty() && tasks.all { it.completed }
             points.add(
                 ProgressionPoint(
                     timestamp = cal.timeInMillis, 
@@ -278,7 +280,7 @@ class HabitViewModel(
                     minutes = totalMins, 
                     completedTasks = completed, 
                     totalTasks = tasks.size, 
-                    activeDays = if (tasks.isNotEmpty()) 1 else 0,
+                    activeDays = if (isDayCompleted) 1 else 0,
                     avgPerActivity = if (completed > 0) totalMins.toFloat() / completed else 0f
                 )
             )
@@ -317,6 +319,10 @@ class HabitViewModel(
             
             val totalMins = tasks.sumOf { it.minutes }
             val completed = tasks.count { it.completed }
+            // Teller kun dager i uken hvor ALLE oppgaver for den dagen er fullført
+            val activeDaysCount = tasks.groupBy { it.date }.values.count { dayEntries ->
+                dayEntries.isNotEmpty() && dayEntries.all { it.completed }
+            }
             
             points.add(
                 ProgressionPoint(
@@ -326,7 +332,7 @@ class HabitViewModel(
                     minutes = totalMins, 
                     completedTasks = completed, 
                     totalTasks = tasks.size, 
-                    activeDays = tasks.groupBy { it.date }.size, 
+                    activeDays = activeDaysCount, 
                     range = "$start – $end",
                     avgPerActivity = if (completed > 0) totalMins.toFloat() / completed else 0f
                 )
@@ -353,15 +359,20 @@ class HabitViewModel(
             val totalMins = tasks.sumOf { it.minutes }
             val completed = tasks.count { it.completed }
             
+            // Teller kun dager i måneden hvor ALLE oppgaver for den dagen er fullført (100% fullført)
+            val completedDaysCount = byDay.values.count { dayEntries ->
+                dayEntries.isNotEmpty() && dayEntries.all { it.completed }
+            }
+            
             points.add(
                 ProgressionPoint(
                     timestamp = m.toLong(), 
                     score = 0f, 
                     label = labelSdf.format(tempCal.time).replaceFirstChar { it.uppercase() }, 
                     minutes = totalMins, 
-                    completedTasks = byDay.values.count { d -> d.isNotEmpty() && d.all { it.completed } }, 
+                    completedTasks = completed, 
                     totalTasks = tasks.size, 
-                    activeDays = byDay.size,
+                    activeDays = completedDaysCount,
                     avgPerActivity = if (completed > 0) totalMins.toFloat() / completed else 0f
                 )
             )
