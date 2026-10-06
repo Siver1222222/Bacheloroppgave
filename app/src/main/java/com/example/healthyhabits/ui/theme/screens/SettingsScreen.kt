@@ -33,7 +33,7 @@ import com.example.healthyhabits.notifications.NotificationScheduler
 private const val PREFS = "healthy_habits"
 private const val FAVORITES_KEY = "library_favorites"
 
-// # 1. INNSTILLINGSSKJERM (SettingsScreen)
+// 1. INNSTILLINGSSKJERM (SettingsScreen)
 @Composable
 fun SettingsScreen(context: Context, viewModel: HabitViewModel, darkMode: Boolean, onDarkModeChanged: (Boolean) -> Unit) {
     // Henter lagrede innstillinger via SharedPreferences
@@ -52,14 +52,14 @@ fun SettingsScreen(context: Context, viewModel: HabitViewModel, darkMode: Boolea
         contentPadding = PaddingValues(start = 22.dp, end = 22.dp, top = 24.dp, bottom = 120.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // # 2. HEADER
+        // 2. HEADER
         item {
             Text("Innstillinger", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
             Spacer(Modifier.height(4.dp))
             Text("Tilpass Treningsvane etter dine behov.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = .6f))
         }
         
-        // # 3. PROFIL SEKSJON (Endre brukernavn)
+        // 3. PROFIL SEKSJON (Endre brukernavn)
         item {
             SectionTitle("Profil")
             SettingsCard {
@@ -87,7 +87,7 @@ fun SettingsScreen(context: Context, viewModel: HabitViewModel, darkMode: Boolea
             }
         }
         
-        // # 5. PÅMINNELSER SEKSJON (Varsler kl. 17:00)
+        // 5. PÅMINNELSER SEKSJON (Varsler kl. 17:00)
         item {
             SectionTitle("Påminnelser")
             SettingsCard {
@@ -108,9 +108,25 @@ fun SettingsScreen(context: Context, viewModel: HabitViewModel, darkMode: Boolea
                     NotificationScheduler.setEnabled(context, enabled)
                 })
             }
+            if (notificationsEnabled) {
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = {
+                        val testIntent = android.content.Intent(context, com.example.healthyhabits.notifications.InactivityNotificationReceiver::class.java).apply {
+                            putExtra("is_test", true)
+                        }
+                        context.sendBroadcast(testIntent)
+                    }) {
+                        Text("🔔 Test varsel nå")
+                    }
+                }
+            }
         }
         
-        // # 6. BIBLIOTEK SEKSJON (Lagrede favoritter)
+        // 6. BIBLIOTEK SEKSJON (Lagrede favoritter)
         item {
             SectionTitle("Bibliotek")
             SettingsCard {
@@ -123,7 +139,7 @@ fun SettingsScreen(context: Context, viewModel: HabitViewModel, darkMode: Boolea
             }
         }
         
-        // # 7. DATA OG PERSONVERN SEKSJON
+        // 7. DATA OG PERSONVERN SEKSJON
         item {
             SectionTitle("Data og personvern")
             SettingsCard {
@@ -139,7 +155,7 @@ fun SettingsScreen(context: Context, viewModel: HabitViewModel, darkMode: Boolea
             }
         }
         
-        // # 8. SLETT DATA SEKSJON
+        // 8. SLETT DATA SEKSJON
         item {
             SectionTitle("Data")
             SettingsCard {
@@ -153,7 +169,7 @@ fun SettingsScreen(context: Context, viewModel: HabitViewModel, darkMode: Boolea
             }
         }
         
-        // # 9. PREFERANSER SEKSJON
+        // 9. PREFERANSER SEKSJON
         item {
             SectionTitle("Preferanser")
             SettingsCard {
@@ -166,7 +182,7 @@ fun SettingsScreen(context: Context, viewModel: HabitViewModel, darkMode: Boolea
             }
         }
         
-        // # 10. OM APPEN SEKSJON
+        // 10. OM APPEN SEKSJON
         item {
             SectionTitle("Om appen")
             SettingsCard {
@@ -182,7 +198,7 @@ fun SettingsScreen(context: Context, viewModel: HabitViewModel, darkMode: Boolea
             }
         }
         
-        // # 11. TILBAKESTILL KNAPP
+        // 11. TILBAKESTILL KNAPP
         item {
             OutlinedButton(onClick = { showResetDialog = true }, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(16.dp)) {
                 Icon(Icons.Default.RestartAlt, null)
@@ -192,7 +208,7 @@ fun SettingsScreen(context: Context, viewModel: HabitViewModel, darkMode: Boolea
         }
     }
 
-    // # 12. DIALOGER (Endre navn, tilbakestill, slett data, om appen)
+    // 12. DIALOGER (Endre navn, tilbakestill, slett data, om appen)
     if (editingName) {
         var draft by remember { mutableStateOf(name) }
         AlertDialog(
@@ -256,7 +272,7 @@ fun SettingsScreen(context: Context, viewModel: HabitViewModel, darkMode: Boolea
     }
 }
 
-// # 13. HJELPEKOMPONENTER FOR INNSTILLINGER
+// 13. HJELPEKOMPONENTER FOR INNSTILLINGER
 @Composable
 private fun SectionTitle(text: String) {
     Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))

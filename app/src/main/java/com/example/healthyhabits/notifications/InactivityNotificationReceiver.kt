@@ -27,6 +27,8 @@ class InactivityNotificationReceiver : BroadcastReceiver() {
         // Avbryter dersom brukeren har deaktivert påminnelser i innstillingene
         if (!NotificationScheduler.isEnabled(context)) return
 
+        val isTest = intent?.getBooleanExtra("is_test", false) == true
+
         // goAsync() gjør det mulig å gjøre asynkron sjekk mot databasen uten at Android avslutter prosessen
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
@@ -37,45 +39,76 @@ class InactivityNotificationReceiver : BroadcastReceiver() {
                 val completed = entries.filter { it.completed }
                 val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
 
-                // Finner datoen for brukerens siste registrerte økt
-                val lastDate = completed.mapNotNull { sdf.parse(it.date) }
-                    .filter { it.time <= System.currentTimeMillis() }
-                    .maxByOrNull { it.time }
+                // Dagens dato satt til midnatt (00:00:00)
+                val todayCal = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
 
-                val reference = lastDate ?: Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -3) }.time
-                val days = ((System.currentTimeMillis() - reference.time) / (24L * 60L * 60L * 1000L)).toInt()
-                
-                // Dersom det har gått 2 hele dager (days >= 2), er brukeren på sin 3. inaktive dag.
-                // Dette er den siste sjansen brukeren har til å gjennomføre en økt før streaken ryker!
-                if (days >= 2) {
+                // Finner datoen for brukerens siste registrerte økt (satt til midnatt)
+                val lastDate = completed.mapNotNull {
+                    try { sdf.parse(it.date) } catch (e: Exception) { null }
+                }.filter { it.time <= System.currentTimeMillis() }
+                .maxByOrNull { it.time }
+
+                val lastCal = Calendar.getInstance().apply {
+                    if (lastDate != null) {
+                        time = lastDate
+                    } else {
+                        // Hvis ingen økt er fullført noen gang, regner vi at brukeren har 3 dager inaktivitet
+                        add(Calendar.DAY_OF_YEAR, -3)
+                    }
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+
+                // Nøyaktig antall hele kalenderdager med inaktivitet
+                val daysInactive = ((todayCal.timeInMillis - lastCal.timeInMillis) / (24L * 60L * 60L * 1000L)).toInt()
+
+                // Varsel utløses på den 3. dagen med inaktivitet (eller flere), eller ved manuell test
+                if (daysInactive >= 3 || isTest) {
                     val prefs = context.getSharedPreferences("healthy_habits", Context.MODE_PRIVATE)
-                    val marker = lastDate?.let { sdf.format(it) } ?: "no_activity"
+                    val todayStr = sdf.format(todayCal.time)
 
-                    // Sørger for at brukeren kun får ETT varsel per inaktive periode
-                    if (prefs.getString("last_inactivity_notification", "") != marker) {
+                    // Bruker dagens dato som markør slik at brukeren får maks ett varsel per dag
+                    if (isTest || prefs.getString("last_inactivity_notification", "") != todayStr) {
                         if (showNotification(context)) {
-                            prefs.edit().putString("last_inactivity_notification", marker).apply()
+                            prefs.edit().putString("last_inactivity_notification", todayStr).apply()
                         }
                     }
                 }
             } finally {
-                // Frigjør den asynkrone kjøreren
+                // Re-planlegger neste 17:00 alarm for i morgen slik at syklusen fortsetter
+                NotificationScheduler.schedule(context)
                 pendingResult.finish()
             }
         }
     }
 
-    // Bygger og viser push varselet på telefonen
+    // Bygger og viser push-varselet som en pop-up på telefonen
     private fun showNotification(context: Context): Boolean {
         // Sjekker om varslingstillatelse er gitt på Android 13+
         if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channelId = "inactivity_reminders"
+        val channelId = "inactivity_reminders_v2"
 
-        // Oppretter varslingskanal for Android 8.0 (Oreo) og nyere
+        // Oppretter varslingskanal med IMPORTANCE_HIGH slik at varselet POPPER OPP på skjermen med lyd/vibrasjon
         if (android.os.Build.VERSION.SDK_INT >= 26) {
-            manager.createNotificationChannel(NotificationChannel(channelId, "Treningspåminnelser", NotificationManager.IMPORTANCE_DEFAULT))
+            val channel = NotificationChannel(
+                channelId,
+                "Treningspåminnelser",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Påminnelser for å ta vare på treningsstreaken din"
+                enableVibration(true)
+                setShowBadge(true)
+            }
+            manager.createNotificationChannel(channel)
         }
 
         // Handling for å åpne appen når brukeren trykker på varselet
@@ -89,12 +122,14 @@ class InactivityNotificationReceiver : BroadcastReceiver() {
         val userName = prefs.getString("user_name", "")?.trim().orEmpty()
         val nameSuffix = if (userName.isNotBlank()) ", $userName" else ""
 
-        // Bygger selve varselet
+        // Bygger selve varselet med HØY prioritet for at det skal poppe opp øverst på skjermen
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Siste sjanse til å redde streaken$nameSuffix! 🔥")
-            .setContentText("Fullfør dagens plan nå for å unngå å miste treningsvanen du har bygget opp.")
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentText("Det har gått 3 dager uten aktivitet. Fullfør en økt i dag for å unngå å miste treningsvanen din!")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setContentIntent(openApp)
             .build()

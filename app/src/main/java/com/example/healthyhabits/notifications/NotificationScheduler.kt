@@ -22,7 +22,7 @@ object NotificationScheduler {
         if (enabled) schedule(context) else cancel(context)
     }
 
-    // Planlegger en daglig gjentakende alarm til klokken 17:00
+    // Planlegger den daglige alarmen til klokken 17:00
     fun schedule(context: Context) {
         if (!isEnabled(context)) return
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -39,11 +39,17 @@ object NotificationScheduler {
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
             // Dersom klokken har passert 17:00 i dag, settes alarmen til 17:00 i morgen
-            if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
+            if (timeInMillis <= System.currentTimeMillis()) {
+                add(Calendar.DAY_OF_YEAR, 1)
+            }
         }
 
-        // Setter opp en dagsversjon av alarmen
-        alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, AlarmManager.INTERVAL_DAY, pending)
+        // Bruker setAndAllowWhileIdle for å garantere at alarmen utløses kl. 17:00 selv om enheten er i dvalemodus
+        if (android.os.Build.VERSION.SDK_INT >= 23) {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pending)
+        } else {
+            alarmManager.setExact(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pending)
+        }
     }
 
     // Kansellerer planlagte alarmer i systemet
