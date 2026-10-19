@@ -319,8 +319,10 @@ class HabitViewModel(
             
             val totalMins = tasks.sumOf { it.minutes }
             val completed = tasks.count { it.completed }
-            // Teller antall unike dager i uken hvor brukeren har gjennomført minst én aktivitet
-            val activeDaysCount = tasks.filter { it.completed }.map { it.date }.distinct().size
+            // Teller kun dager i uken hvor 100% av oppgavene for den dagen er fullført
+            val activeDaysCount = tasks.groupBy { it.date }.values.count { dayEntries ->
+                dayEntries.isNotEmpty() && dayEntries.all { it.completed }
+            }
             
             points.add(
                 ProgressionPoint(
@@ -353,11 +355,14 @@ class HabitViewModel(
         val tempCal = Calendar.getInstance()
         repeat(12) { m ->
             val tasks = byM[m] ?: emptyList(); tempCal.set(Calendar.MONTH, m)
+            val byDay = tasks.groupBy { it.date }
             val totalMins = tasks.sumOf { it.minutes }
             val completed = tasks.count { it.completed }
             
-            // Teller antall unike dager i måneden hvor brukeren har gjennomført minst én aktivitet
-            val completedDaysCount = tasks.filter { it.completed }.map { it.date }.distinct().size
+            // Teller kun dager i måneden hvor 100% av oppgavene for den dagen er fullført
+            val completedDaysCount = byDay.values.count { dayEntries ->
+                dayEntries.isNotEmpty() && dayEntries.all { it.completed }
+            }
             
             points.add(
                 ProgressionPoint(
